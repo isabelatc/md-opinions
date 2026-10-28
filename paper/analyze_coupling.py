@@ -1,7 +1,7 @@
 """Summaries and figures for the coupled reruns of Experiments 2 and 3.
 
 Usage: python paper/analyze_coupling.py <figure_output_dir>
-Reads paper/results/e2_coupling.json and paper/results/e3_coupling.json.
+Reads the JSON files in paper/results/ written by paper/exp_coupling.py.
 """
 import os
 import sys
@@ -25,6 +25,99 @@ def style(ax, title, xlabel=r"cross-topic coupling $\alpha$"):
     ax.set_title(title, fontsize=8)
     ax.set_xlabel(xlabel)
     ax.grid(axis="y", color=GRID, lw=0.5)
+
+
+# ------------------------------------------------------------------ Reddit network
+def reddit(variant=""):
+    """Column-width figure: recommender's relative change of D and P versus alpha on Reddit.
+
+    variant="" uses the thesis optimizer, variant="_mono" the monotone one.
+    """
+    res = json.load(open(os.path.join(RES, "reddit.json")))
+    alphas = [r["alpha"] for r in res]
+    pct = lambda d, k: 100 * (d[k][-1] / d[k][0] - 1)
+    print("== Reddit (variant %r) ==" % (variant or "thesis"))
+    for r in res:
+        print(r["alpha"], " ".join(f"{v}: dD {pct(r[v + variant], 'D'):.1f}% dP {pct(r[v + variant], 'P'):.1f}% "
+                                   f"dI {pct(r[v + variant], 'I'):.1f}% iters {r[v + variant]['iters']}" for v in ["NR", "RR"]))
+    with plt.rc_context({"font.size": 7, "axes.titlesize": 7, "legend.fontsize": 7}):
+        fig, ax = plt.subplots(1, 2, figsize=(3.5, 1.65), constrained_layout=True)
+        for j, v in enumerate(["NR", "RR"]):
+            for k, met in enumerate(["D", "P"]):
+                ax[k].plot(alphas, [pct(r[v + variant], met) for r in res], color=SERIES[j], lw=1.3,
+                           marker="o", ms=3, label=v)
+        for k, t in enumerate([r"(a) $\Delta\mathcal{D}_{z^*}$ (%)", r"(b) $\Delta\mathcal{P}_{z^*}$ (%)"]):
+            ax[k].set_title(t)
+            ax[k].set_xlabel(r"cross-topic coupling $\alpha$")
+            ax[k].axhline(0, color=INK2, lw=0.6)
+            ax[k].grid(axis="y", color=GRID, lw=0.5)
+            ax[k].set_xticks(alphas)
+            ax[k].tick_params(labelsize=6.5)
+        ax[1].legend(frameon=False)
+        fig.savefig(os.path.join(FIG, "reddit_alpha.pdf"))
+
+
+# ------------------------------------------------- Experiment 2, original weak coupling
+def e2weak():
+    """Column-width figures for E2 with the thesis generator (weak cross-topic weights)."""
+    rows = json.load(open(os.path.join(RES, "e2_weak.json")))
+    prs, mes = ["PR1", "PR2", "PR3", "PR4"], ["ME1", "ME2", "ME3"]
+    small = {"font.size": 7, "axes.titlesize": 7, "legend.fontsize": 7}
+
+    with plt.rc_context(small):
+        # Mean equilibrium metrics by initial-condition case
+        fig, ax = plt.subplots(1, 3, figsize=(3.5, 1.75), constrained_layout=True)
+        names = {"P": r"Polarization $\mathcal{P}_{z^*}$", "D": r"Disagreement $\mathcal{D}_{z^*}$",
+                 "I": r"Internal conflict $\mathcal{I}_{z^*}$"}
+        for k, met in enumerate(["P", "D", "I"]):
+            for j, pr in enumerate(prs):
+                y = [np.mean([r[met] for r in rows if r["PR"] == pr and r["ME"] == me]) for me in mes]
+                ax[k].plot(range(3), y, color=SERIES[j], lw=1.3, marker="o", ms=3, label=pr)
+            ax[k].set_xticks(range(3), mes)
+            ax[k].set_title(names[met])
+            ax[k].grid(axis="y", color=GRID, lw=0.5)
+            ax[k].tick_params(labelsize=6.5)
+        ax[0].set_ylabel("mean over 100 networks")
+        fig.legend(*ax[0].get_legend_handles_labels(), loc="outside lower center", ncol=4, frameon=False)
+        fig.savefig(os.path.join(FIG, "e2_initial_conditions.pdf"))
+
+        # Coupled vs topic-isolated equilibrium, per network and topic (all cases)
+        fig, ax = plt.subplots(1, 2, figsize=(3.5, 1.75), constrained_layout=True)
+        pairs = [(r[f"P{a}"], r[f"P{a}_iso"]) for r in rows for a in (1, 2)]
+        x, y = np.array(pairs).T
+        ax[0].scatter(x, y, s=4, color=SERIES[0], alpha=0.35, lw=0)
+        lim = [min(x.min(), y.min()), max(x.max(), y.max())]
+        ax[0].plot(lim, lim, color=INK2, lw=0.6, ls="--")
+        ax[0].set_xscale("log"); ax[0].set_yscale("log")
+        ax[0].set_title("Per-topic polarization")
+        ax[0].set_xlabel("coupled ($m=2$)"); ax[0].set_ylabel("topic-isolated")
+        pairs = [(r[f"D{a}"], r[f"D{a}_iso"]) for r in rows for a in (1, 2)]
+        x, y = np.array(pairs).T
+        ax[1].scatter(x, y, s=4, color=SERIES[1], alpha=0.35, lw=0)
+        lim = [min(x.min(), y.min()), max(x.max(), y.max())]
+        ax[1].plot(lim, lim, color=INK2, lw=0.6, ls="--")
+        ax[1].set_xlim(-6, 22); ax[1].set_ylim(-1, 22)
+        ax[1].axvline(0, color=INK2, lw=0.5)
+        ax[1].set_title("Per-topic disagreement")
+        ax[1].set_xlabel("coupled ($m=2$)")
+        for a_ in ax:
+            a_.tick_params(labelsize=6.5)
+        fig.savefig(os.path.join(FIG, "e2_isolated.pdf"))
+
+    # Topic 1 vs topic 2 per metric (appendix, full width)
+    fig, ax = plt.subplots(1, 3, figsize=(7.16, 2.1), constrained_layout=True)
+    for k, met in enumerate(["P", "D", "I"]):
+        for j, me in enumerate(mes):
+            sel = [r for r in rows if r["ME"] == me]
+            ax[k].scatter([r[met + "1"] for r in sel], [r[met + "2"] for r in sel], s=5, alpha=0.4,
+                          lw=0, color=SERIES[j], label=me)
+        lo, hi = ax[k].get_xlim()
+        ax[k].plot([lo, hi], [lo, hi], color=INK2, lw=0.6, ls="--")
+        ax[k].set_title(names[met], fontsize=8)
+        ax[k].set_xlabel("topic 1"); ax[k].grid(color=GRID, lw=0.5)
+    ax[0].set_ylabel("topic 2")
+    ax[0].legend(frameon=False, markerscale=2)
+    fig.savefig(os.path.join(FIG, "e2_topics.pdf"))
 
 
 # ------------------------------------------------------------------ Experiment 2
@@ -89,7 +182,7 @@ def e2():
     ax[2].plot(alphas, neg, color=INK, lw=1.6, marker="o", ms=3)
     style(ax[0], "(a) Global metrics, all cases")
     style(ax[1], "(b) Topic asymmetry of polarization (ME3)")
-    style(ax[2], "(c) Negative per-topic disagreement")
+    style(ax[2], "(c) Negative per-topic $\\mathcal{D}$")
     ax[0].set_ylabel(r"median ratio to $\alpha=0$")
     ax[1].set_ylabel(r"$|\mathcal{P}^{[1]}-\mathcal{P}^{[2]}|\,/\,(\mathcal{P}^{[1]}+\mathcal{P}^{[2]})$")
     ax[2].set_ylabel("share of networks")
@@ -165,13 +258,13 @@ def e3(fname="e3_coupling_monotone.json", figname="e3_coupling.pdf"):
         ax[2].bar(np.arange(len(alphas)) + (j - 1) * width, vals, width=width - 0.02, color=SERIES[j], label=lab)
     ax[2].set_xticks(range(len(alphas)), [str(a) for a in alphas])
     ax[2].axhline(0, color=INK2, lw=0.6)
-    style(ax[2], "(c) Destination of released budget")
-    ax[2].set_ylabel(r"share of $-2\Delta\mathcal{D}$ (NR, median)")
+    style(ax[2], "(c) Released budget (NR, median)")
+    ax[2].set_ylabel(r"share of $-2\Delta\mathcal{D}$")
     ax[2].set_ylim(-0.3, 1.5)
     ax[2].legend(frameon=False, fontsize=7, ncol=3, loc="upper right")
     fig.savefig(os.path.join(FIG, figname))
 
 
 if __name__ == "__main__":
-    for part in sys.argv[2:] or ["e2", "e3"]:  # e3 = monotone optimizer; e3thesis = thesis optimizer
-        {"e2": e2, "e3": e3, "e3thesis": lambda: e3("e3_coupling.json", "e3_coupling_thesis_optimizer.pdf")}[part]()
+    for part in sys.argv[2:] or ["e2weak", "e2", "e3"]:  # e3 = monotone optimizer; e3thesis = thesis optimizer
+        {"reddit": reddit, "reddit_mono": lambda: reddit("_mono"), "e2weak": e2weak, "e2": e2, "e3": e3, "e3thesis": lambda: e3("e3_coupling.json", "e3_coupling_thesis_optimizer.pdf")}[part]()

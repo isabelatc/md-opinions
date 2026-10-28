@@ -1,0 +1,25 @@
+Downloading pandas (10.7MiB)
+ Downloaded pandas
+Installed 17 packages in 87ms
+Network data by alpha:
+
+alpha = 0.0 —> Max. Weight = 0.846
+=> P = 149.59, D = 205.35, I = 476.55, D_st = 205.35, D_ct = 0.00
+
+alpha = 0.25 —> Max. Weight = 0.846
+=> P = 113.61, D = 193.46, I = 538.56, D_st = 204.06, D_ct = -10.61
+
+alpha = 0.5 —> Max. Weight = 0.846
+=> P = 90.62, D = 180.96, I = 586.88, D_st = 203.50, D_ct = -22.54
+
+alpha = 0.75 —> Max. Weight = 0.846
+=> P = 74.61, D = 169.56, I = 625.82, D_st = 203.93, D_ct = -34.37
+
+alpha = 1.0 —> Max. Weight = 0.846
+=> P = 62.84, D = 159.37, I = 658.06, D_st = 205.25, D_ct = -45.89
+
+[Reddit] alpha=0.0 done in 89s
+[Reddit] alpha=0.25 done in 190s
+[Reddit] alpha=0.5 done in 104s
+[Reddit] alpha=0.75 done in 199s
+[Reddit] alpha=1.0 done in 101s

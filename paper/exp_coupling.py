@@ -6,8 +6,10 @@ alpha = 0 gives independent topics; the thesis setting corresponds to alpha ~ 0.
 
 Usage (from the repository root):
   python paper/exp_coupling.py e2 [networks_per_case]
+  python paper/exp_coupling.py e2weak [networks_per_case]   (original weak coupling)
   python paper/exp_coupling.py e3 [networks]     (thesis optimizer)
   python paper/exp_coupling.py e3m [networks]    (monotone optimizer with backtracking)
+  python paper/exp_coupling.py reddit            (Reddit network, both optimizers)
 Results are written to paper/results/.
 """
 import os
@@ -61,7 +63,9 @@ def full_metrics(nw, z=None):
 ALPHAS_E2 = [0.0, 0.1, 0.25, 0.5, 1.0]
 
 
-def run_e2(per_case=100):
+def run_e2(per_case=100, weak=False):
+    """weak=True evaluates only the original generator's (thesis) weak cross-topic weights."""
+    alphas = ["thesis"] if weak else ALPHAS_E2
     mean_ranges = [[0.1, 0.3], [0.7, 0.9]]
     mu_ranges, k_ranges = [[0.05, 0.2], [0.25, 0.4]], [[20, 45], [55, 80]]
     rows = []
@@ -88,8 +92,9 @@ def run_e2(per_case=100):
                     s = nw.s
                     mu_s = np.array([get_vector_topic(s, a, 2).mean() for a in range(2)])
                     A0 = nw.A.toarray()
-                    for alpha in ALPHAS_E2:
-                        nw.update_MDN(sp.csr_matrix(couple(A0, n, 2, alpha)))
+                    for alpha in alphas:
+                        if alpha != "thesis":
+                            nw.update_MDN(sp.csr_matrix(couple(A0, n, 2, alpha)))
                         r = full_metrics(nw)
                         P1d, D1d, I1d = nw.get_metrics_1D()
                         rows.append(dict(case=f"{pr}/{me}", PR=pr, ME=me, net=i, alpha=alpha, n=n,
@@ -99,7 +104,7 @@ def run_e2(per_case=100):
                                          I1=r["It"][0], I2=r["It"][1], mu1=r["mu"][0], mu2=r["mu"][1],
                                          P1_iso=P1d[0], P2_iso=P1d[1], D1_iso=D1d[0], D2_iso=D1d[1]))
                 print(f"[E2] case {case_id}/12 {pr}/{me} done in {time.time() - t0:.0f}s", flush=True)
-    with open(os.path.join(OUT, "e2_coupling.json"), "w") as f:
+    with open(os.path.join(OUT, "e2_weak.json" if weak else "e2_coupling.json"), "w") as f:
         json.dump(rows, f, default=float)
 
 
@@ -200,12 +205,37 @@ def run_e3(num=15, monotone=False):
             json.dump(results, f, default=float)
 
 
+def run_reddit():
+    """Recommender on the Reddit network (deterministic) with both optimizers, alpha in {0,...,1}."""
+    from exp3_preprocessing import EXP3_create_nwr
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    nws = EXP3_create_nwr([0.0, 0.25, 0.5, 0.75, 1.0], show=False,
+                          bots_file=os.path.join(root, "REDDIT_data/blacklist_anon.joblib"),
+                          data_file=os.path.join(root, "REDDIT_data/edges_anon.csv"))
+    results = []
+    for alpha, nw in nws.items():
+        t0 = time.time()
+        row = dict(alpha=alpha, n=int(sum(nw.sizes)))
+        row["NR"] = recommend(nw)
+        row["RR"] = recommend(nw, reg=True, gamma=0.2)
+        row["NR_mono"] = recommend(nw, tol=1e-4, monotone=True)
+        row["RR_mono"] = recommend(nw, reg=True, gamma=0.2, tol=1e-4, monotone=True)
+        results.append(row)
+        print(f"[Reddit] alpha={alpha} done in {time.time() - t0:.0f}s", flush=True)
+        with open(os.path.join(OUT, "reddit.json"), "w") as f:
+            json.dump(results, f, default=float)
+
+
 if __name__ == "__main__":
     which = sys.argv[1]
     count = int(sys.argv[2]) if len(sys.argv) > 2 else None
     if which == "e2":
         run_e2(count or 100)
+    elif which == "e2weak":
+        run_e2(count or 100, weak=True)
     elif which == "e3":
         run_e3(count or 15)
+    elif which == "reddit":
+        run_reddit()
     elif which == "e3m":
         run_e3(count or 15, monotone=True)

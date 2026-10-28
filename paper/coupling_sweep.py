@@ -86,9 +86,9 @@ ax[1].text(0.55, 0.17, "common", ha="left", fontsize=7, color="#0b0b0b")
 ax[1].text(0.08, 0.62, "contrast", ha="left", fontsize=7, color="#0b0b0b")
 
 titles = ["(a) Polarization $\\mathcal{P}_{z^*}$", "(b) Modes of $\\mathcal{P}_{z^*}$ ($m=3$)",
-          "(c) Spread of topic means", "(d) $\\mathcal{P}_{z^*}$, budget-neutral $C$"]
+          "(c) Spread of topic means", "(d) Budget-neutral"]
 for a_, t in zip(ax, titles):
-    a_.set_title(t, fontsize=8)
+    a_.set_title(t, fontsize=7.5)
     a_.set_xlabel("cross-topic coupling $\\alpha$")
     a_.grid(axis="y", color="#e6e5e0", lw=0.5)
     a_.set_ylim(bottom=0)
