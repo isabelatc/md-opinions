@@ -40,19 +40,23 @@ class MDNetwork:
     m (int): The amount of topics (or dimensions) in the network.
     lb (float): Minimum value of opinions.
     ub (float): Maximum value of opinions.
+    alpha (float): Optional cross-topic coupling in [0, 1]. If given, every cross-topic weight is alpha 
+                   times the mean of the two same-topic weights of that edge. If None, cross-topic 
+                   weights are drawn below the smallest same-topic weight (original thesis setting).
     s (ndarray): The intrinsic opinions of the participants in each topic.
     A (csr_matrix): A modified adjacency matrix of the network.
     D (csr_matrix): A modified degree matrix of the network.
     L (csr_matrix): A modified Laplacian matrix of the network.
   """
 
-  def __init__(self, sizes=None, probs=None, means=None, std=0.5, m=2, lb=-1.0, ub=1.0):
+  def __init__(self, sizes=None, probs=None, means=None, std=0.5, m=2, lb=-1.0, ub=1.0, alpha=None):
     """
     Initializes an MDNetwork object.
     """
     # Attributes from parameters
     self.sizes, self.probs, self.means = sizes, probs, means
     self.std, self.m, self.lb, self.ub = std, m, lb, ub
+    self.alpha = alpha
 
     # Attributes to set, checking if the initialization had values or not
     if (self.sizes and self.probs and self.means):
@@ -110,10 +114,13 @@ class MDNetwork:
     m = self.m
     n = sum(self.sizes)
 
+    diags = []
+
     # Fill diagonal blocks (a = b)
     for a in range(m):
       d = np.round(rng.uniform(low=2e-3, high=1.0, size=t), 3)
       min_diags.append(d.min())
+      diags.append(d)
 
       r_block = rows + a * n
       c_block = cols + a * n
@@ -125,8 +132,11 @@ class MDNetwork:
     # Fill non-diagonal blocks (a != b)
     for a in range(m):
       for b in range(a + 1, m):
-        min_d = min(min_diags[a], min_diags[b])
-        nd = np.round(rng.uniform(low=1e-3, high=min_d, size=t), 3)
+        if self.alpha is None:
+          min_d = min(min_diags[a], min_diags[b])
+          nd = np.round(rng.uniform(low=1e-3, high=min_d, size=t), 3)
+        else:
+          nd = self.alpha * (diags[a] + diags[b]) / 2
 
         r_block_ab = rows + a * n
         c_block_ab = cols + b * n
@@ -214,9 +224,9 @@ class MDNetwork:
     # Iterate through topics
     for a in range(m):
       z_a = get_vector_topic(z, a, m)
+      ct_a = 0
       for b in range(m):
         l_ab = get_matrix_topics(self.L, a, b, m)
-        ct_a = 0
         if a == b:
           st_a = z_a @ l_ab @ z_a
           Dz_same[a] = st_a
@@ -336,7 +346,8 @@ class MDNetwork:
         std   = self.std,
         m     = self.m,
         lb    = self.lb,
-        ub    = self.ub
+        ub    = self.ub,
+        alpha = self.alpha
         )
 
     # Copy the rest of the elements
