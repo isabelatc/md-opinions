@@ -1,7 +1,7 @@
 """Summaries and figures for the coupled reruns of Experiments 2 and 3.
 
-Usage: python paper/analyze_coupling.py <figure_output_dir>
-Reads the JSON files in paper/results/ written by paper/exp_coupling.py.
+Usage: python paper_code/analyze_coupling.py <figure_output_dir>
+Reads the JSON files in paper_code/results/ written by paper_code/exp_coupling.py.
 """
 import os
 import sys

@@ -5,12 +5,12 @@ cross-topic blocks are set to A[a,b] = alpha * (A[a,a] + A[b,b]) / 2 on the same
 alpha = 0 gives independent topics; the thesis setting corresponds to alpha ~ 0.003.
 
 Usage (from the repository root):
-  python paper/exp_coupling.py e2 [networks_per_case]
-  python paper/exp_coupling.py e2weak [networks_per_case]   (original weak coupling)
-  python paper/exp_coupling.py e3 [networks]     (thesis optimizer)
-  python paper/exp_coupling.py e3m [networks]    (monotone optimizer with backtracking)
-  python paper/exp_coupling.py reddit            (Reddit network, both optimizers)
-Results are written to paper/results/.
+  python paper_code/exp_coupling.py e2 [networks_per_case]
+  python paper_code/exp_coupling.py e2weak [networks_per_case]   (original weak coupling)
+  python paper_code/exp_coupling.py e3 [networks]     (thesis optimizer)
+  python paper_code/exp_coupling.py e3m [networks]    (monotone optimizer with backtracking)
+  python paper_code/exp_coupling.py reddit            (Reddit network, both optimizers)
+Results are written to paper_code/results/.
 """
 import os
 import sys

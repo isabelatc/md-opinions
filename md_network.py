@@ -40,9 +40,9 @@ class MDNetwork:
     m (int): The amount of topics (or dimensions) in the network.
     lb (float): Minimum value of opinions.
     ub (float): Maximum value of opinions.
-    alpha (float): Optional cross-topic coupling in [0, 1]. If given, every cross-topic weight is alpha 
-                   times the mean of the two same-topic weights of that edge. If None, cross-topic 
-                   weights are drawn below the smallest same-topic weight (original thesis setting).
+    alpha (float): Cross-topic coupling in [0, 1]. If given, every cross-topic weight is alpha times
+                   the mean of the two same-topic weights of that edge. If None, cross-topic weights
+                   are drawn uniformly below the smallest same-topic weight.
     s (ndarray): The intrinsic opinions of the participants in each topic.
     A (csr_matrix): A modified adjacency matrix of the network.
     D (csr_matrix): A modified degree matrix of the network.
@@ -55,8 +55,7 @@ class MDNetwork:
     """
     # Attributes from parameters
     self.sizes, self.probs, self.means = sizes, probs, means
-    self.std, self.m, self.lb, self.ub = std, m, lb, ub
-    self.alpha = alpha
+    self.std, self.m, self.lb, self.ub, self.alpha = std, m, lb, ub, alpha
 
     # Attributes to set, checking if the initialization had values or not
     if (self.sizes and self.probs and self.means):
@@ -110,16 +109,13 @@ class MDNetwork:
     r = []
     c = []
     v = []
-    min_diags = []
+    diags = []
     m = self.m
     n = sum(self.sizes)
-
-    diags = []
 
     # Fill diagonal blocks (a = b)
     for a in range(m):
       d = np.round(rng.uniform(low=2e-3, high=1.0, size=t), 3)
-      min_diags.append(d.min())
       diags.append(d)
 
       r_block = rows + a * n
@@ -132,8 +128,9 @@ class MDNetwork:
     # Fill non-diagonal blocks (a != b)
     for a in range(m):
       for b in range(a + 1, m):
+        # Random weights below the smallest same-topic weight, or alpha times their mean
         if self.alpha is None:
-          min_d = min(min_diags[a], min_diags[b])
+          min_d = min(diags[a].min(), diags[b].min())
           nd = np.round(rng.uniform(low=1e-3, high=min_d, size=t), 3)
         else:
           nd = self.alpha * (diags[a] + diags[b]) / 2
