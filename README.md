@@ -13,6 +13,12 @@ Code for the investigation regarding my Master's thesis in Computer Science at U
 - `exp3_preprocessing.py` - Creation of a network from Reddit data
 - `utils.py` - Helper functions
 - `REDDIT_data/` - Original data from Reddit 
+- `paper_code/` - Code for the paper, where Experiments 2 and 3 are repeated with a controlled cross-topic coupling
+  - `exp_coupling.py` - Experiments 2 and 3 (random networks and Reddit) for different coupling values
+  - `res_coupling.py` - Summaries and figures from the results of the experiments
+  - `star_counterexample.py` - Counterexample for the convergence in Euclidean norm
+  - `coupling_sweep.py` - Numerical example of uniform coupling between topics
+  - `results/` - Results (JSON) and logs of the experiments
 
 ## Resources
 
