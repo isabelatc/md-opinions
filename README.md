@@ -2,7 +2,7 @@
 
 *Author: Isabela Tellechea Coluccio*
 
-Code for the investigation regarding my Master's thesis in Computer Science at Universidad de Chile.
+Code for the investigation regarding my Master's thesis in Computer Science at Universidad de Chile. This repository also includes additional code created for a research paper based on this work.
 
 ## Repository Structure
 
@@ -19,6 +19,12 @@ Code for the investigation regarding my Master's thesis in Computer Science at U
   - `star_counterexample.py` - Counterexample for the convergence in Euclidean norm
   - `coupling_sweep.py` - Numerical example of uniform coupling between topics
   - `results/` - Results (JSON) and logs of the experiments
+
+## Note on the Thesis Version
+
+The code used for the thesis is kept in the tag [`thesis-published`](https://github.com/isabelatc/md-opinions/tree/thesis-published). That version has a bug in `MDNetwork.get_Dz_terms`: the cross-topic accumulator was reset inside the topic loop, so the cross-topic term of the last topics was always 0. As a result, the thesis figures that show the same-topic and cross-topic terms of disagreement need to be revised.
+
+This error does not affect any other result, since global and per-topic metrics are correctly calculated through other methods. **The bug is fixed in every later version of the code** (from commit `74b146d` on).
 
 ## Resources
 
