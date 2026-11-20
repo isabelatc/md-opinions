@@ -158,6 +158,15 @@ def get_pct_change(data: dict, metric: str) -> float:
   return 100 * (data[metric][-1] / data[metric][0] - 1)
 
 
+def get_asymmetry(row: dict, metric: str) -> float:
+  """
+  Returns the topic asymmetry |X1 - X2| / (|X1| + |X2|) of <metric> X in a two-topic <row> (0 when
+  both topics have the same value, 1 when all of X is on one topic).
+  """
+  x1, x2 = row[metric + "1"], row[metric + "2"]
+  return abs(x1 - x2) / (abs(x1) + abs(x2))
+
+
 # ===== Reddit Network (EXP3) =====
 
 def EXP3_res_reddit(variant: str=""):
@@ -203,11 +212,37 @@ def EXP3_res_reddit(variant: str=""):
 
 def EXP2_res_weak():
   """
-  Plots the figures for EXP2 with the thesis generator (weak cross-topic weights): averaged metrics
+  Prints the summaries of EXP2 with the thesis generator (weak cross-topic weights): averaged metrics
+  by case, topic asymmetry by case, and coupled vs. topic-isolated ratios. Plots the averaged metrics
   by case, coupled vs. topic-isolated metrics, and topic 1 vs. topic 2 (appendix).
   """
   rows = json.load(open(os.path.join(RES, "exp2_weak.json")))
   prs, mes = ["PR1", "PR2", "PR3", "PR4"], ["ME1", "ME2", "ME3"]
+
+  # Averaged metrics for each case (compared with the thesis in the appendix)
+  print("== E2 weak: mean of P, D, I by case ==")
+  for pr in prs:
+    for me in mes:
+      sel = [r for r in rows if r["PR"] == pr and r["ME"] == me]
+      print(f"{pr}/{me}", " ".join(f"{met} {np.mean([r[met] for r in sel]):.3f}" for met in MET_LABELS))
+
+  # Topic asymmetry of each metric, median by case (one value per PR case)
+  print("== E2 weak: median topic asymmetry |X1-X2|/(|X1|+|X2|), values for PR1..PR4 ==")
+  for met in MET_LABELS:
+    for me in mes:
+      meds = [np.median([get_asymmetry(r, met) for r in rows if r["PR"] == pr and r["ME"] == me])
+              for pr in prs]
+      print(met, me, np.round(meds, 2).tolist())
+
+  # Coupled (m = 2) vs. topic-isolated (m = 1), per network and topic
+  print("== E2 weak: topic-isolated / coupled ratios, per network and topic ==")
+  P_ratio = [r[f"P{t}_iso"] / r[f"P{t}"] for r in rows for t in (1, 2)]
+  D_pairs = [(r[f"D{t}_iso"], r[f"D{t}"]) for r in rows for t in (1, 2)]
+  D_ratio = [d_iso / d for d_iso, d in D_pairs if d > 0]
+  print(f"P: median {np.median(P_ratio):.3f}, 5th-95th percentiles "
+        f"{np.percentile(P_ratio, 5):.3f} {np.percentile(P_ratio, 95):.3f}")
+  print(f"D (coupled D > 0): median {np.median(D_ratio):.3f}, 90th percentile {np.percentile(D_ratio, 90):.2f}")
+  print(f"share of per-topic D <= 0 (coupled): {np.mean([d <= 0 for _, d in D_pairs]):.4f}")
 
   # 1) Averaged metrics for each case of initial conditions
   f, axs = make_fig(ncols=3, height=1.8, p_args=dict(h_pad=0.04))
@@ -333,7 +368,18 @@ def EXP2_res_coupling():
       out.append(np.median(v))
     return np.array(out)
 
-  # Ratios to alpha = 0 at alpha = 1
+  # Ratios to alpha = 0 at alpha = 1, over all networks
+  print("== E2: median ratio to alpha=0 at alpha=1 (all networks) ==")
+  print(" ".join(f"{met} {ratio(met)[-1, 0]:.3f}" for met in ["P", "D", "I"]))
+
+  # Networks where polarization decreases at every step of alpha
+  P_by_net = {}
+  for r in sorted(rows, key=lambda r: r["alpha"]):
+    P_by_net.setdefault(key(r), []).append(r["P"])
+  mono = np.mean([np.all(np.diff(P) < 0) for P in P_by_net.values()])
+  print(f"== E2: share of networks where P decreases at every alpha step: {mono:.3f} ==")
+
+  # Ratios to alpha = 0 at alpha = 1, by case
   print("== E2: median ratio to alpha=0 at alpha=1 (by PR, all ME) ==")
   for pr in prs:
     P_r, D_r, I_r = [ratio(met, pr=pr)[-1, 0] for met in ["P", "D", "I"]]
@@ -369,8 +415,9 @@ def EXP2_res_coupling():
     neg = np.mean([min(r["D1"], r["D2"]) < 0 for r in rows if r["alpha"] == a])
     print(a, f"median {np.median(v):.3f}", f"share of networks with a negative per-topic D: {neg:.3f}")
 
-  # Figure
-  f, axs = make_fig(ncols=3, width=FULL, height=1.95, p_args=dict(wspace=0.08))
+  # Figure, 2 x 2 (one plot for each pattern in the text)
+  f, axs = make_fig(nrows=2, ncols=2, width=FULL, height=3.0, p_args=dict(wspace=0.08, hspace=0.06))
+  axs = axs.flatten()
 
   # (a) Global metrics relative to alpha = 0, with interquartile ranges
   for j, met in enumerate(MET_LABELS):
@@ -396,11 +443,22 @@ def EXP2_res_coupling():
       handletextpad=0.4, borderaxespad=0.5
       )
 
-  # (c) Networks with a negative per-topic disagreement
+  # (c) Gap between the topic means (ME3), in log scale
+  gap = [np.median([abs(r["mu1"] - r["mu2"]) for r in rows if r["alpha"] == a and r["ME"] == "ME3"])
+         for a in alphas]
+  axs[2].plot(alphas, gap, color=C_1, **P_ARGS)
+  set_labels(
+      axs[2], "(c) Gap Between Topic Means (ME3)", "$\\alpha$",
+      r"$|\mu^{[1]}_{z^*}-\mu^{[2]}_{z^*}|$", pad=10
+      )
+  axs[2].set_yscale("log")
+  axs[2].set_ylim(3e-3, 1)
+
+  # (d) Networks with a negative per-topic disagreement
   neg = [np.mean([min(r["D1"], r["D2"]) < 0 for r in rows if r["alpha"] == a]) for a in alphas]
-  axs[2].plot(alphas, neg, color=C_1, **P_ARGS)
-  set_labels(axs[2], "(c) Negative Per-Topic Disagreement", "$\\alpha$", "Share of Networks", pad=10)
-  axs[2].set_ylim(0, 1)
+  axs[3].plot(alphas, neg, color=C_1, **P_ARGS)
+  set_labels(axs[3], "(d) Negative Per-Topic Disagreement", "$\\alpha$", "Share of Networks", pad=10)
+  axs[3].set_ylim(0, 1)
 
   # Same alpha ticks for all plots
   for ax in axs:
@@ -441,6 +499,11 @@ def EXP3_res_coupling(fname: str="exp3_coupling_monotone.json", figname: str="e3
             f"dP% median {np.median(dP):.1f} [IQR {np.percentile(dP, 25):.1f},{np.percentile(dP, 75):.1f}] "
             f"max {dP.max():.1f}; share dP>0 {np.mean(dP > 0):.2f}; "
             f"budget to P/I/M (median) {np.round(np.median(rel, 0), 2).tolist()}; max residual {resid:.1e}")
+
+      # Runs where disagreement increased or did not change, and number of iterations
+      iters = [d["iters"] for d in sel]
+      print(f"   share dD>0 {np.mean(dD > 0):.2f} (max dD {dD.max():.1f}%); unchanged runs (dD=0) "
+            f"{np.sum(dD == 0)}; iterations median {np.median(iters):.0f}, share <= 10 {np.mean(np.array(iters) <= 10):.2f}")
 
   # Per-network paired comparison of alpha = 0 and alpha = 1
   for v in ["NR", "RR"]:
